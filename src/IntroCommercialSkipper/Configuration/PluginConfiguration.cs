@@ -63,14 +63,10 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>
     /// Gets or sets an explicit path to the ffmpeg executable. Empty means "look up ffmpeg on PATH".
+    /// Jellyfin's own bundled ffmpeg is usually not on PATH; on the official Docker image it is at
+    /// /usr/lib/jellyfin-ffmpeg/ffmpeg.
     /// </summary>
     public string FfmpegPath { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets an explicit path to the fpcalc (Chromaprint) executable. Empty means "look up
-    /// fpcalc on PATH".
-    /// </summary>
-    public string FpcalcPath { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the maximum number of episodes per season that are fingerprinted and compared

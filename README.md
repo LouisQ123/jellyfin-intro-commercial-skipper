@@ -27,9 +27,11 @@ For a library to use it:
 3. Run "Extract Media Segments" from Dashboard → Scheduled Tasks (or just wait for it to run on
    its own schedule).
 
-The first analysis of a file shells out to `ffmpeg`/`fpcalc`, which costs real CPU time; results
-are cached (keyed by file size + modified time) so re-running the task doesn't redo the work
-unless the file actually changed.
+The first analysis of a file shells out to `ffmpeg` (using its built-in Chromaprint muxer - no
+separate `fpcalc` binary needed), which costs real CPU time; results are cached (keyed by file size
++ modified time) so re-running the task doesn't redo the work unless the file actually changed. If
+ffmpeg can't even be launched (wrong path), that failure is *not* cached, so fixing the path and
+re-running the task retries properly instead of being stuck on a stale "nothing found" result.
 
 ## Detection approach and its limits
 
@@ -50,11 +52,13 @@ occasionally flag a deliberate black-screen-with-silence moment in actual conten
 
 ## Requirements
 
-- Jellyfin server 12.4.x (this plugin targets the `MediaBrowser.Controller`/`MediaBrowser.Model`
-  ABI as of that version - see **Targeting a different Jellyfin version** below if you're on an
-  older server).
-- `ffmpeg` and `fpcalc` (Chromaprint) available on the server's `PATH`, or configured with an
-  explicit path in the plugin settings.
+- Jellyfin server 10.11.x by default (this plugin targets the `MediaBrowser.Controller`/
+  `MediaBrowser.Model` ABI as of that version - see **Targeting a different Jellyfin version**
+  below to build for 12.x or an older 10.x server instead).
+- `ffmpeg` built with Chromaprint support, available on the server's `PATH` or configured with an
+  explicit path in the plugin settings. jellyfin-ffmpeg (what Jellyfin's own Docker image bundles)
+  always includes this; it is usually *not* on `PATH` inside the container - on the official image
+  it's at `/usr/lib/jellyfin-ffmpeg/ffmpeg`. No separate `fpcalc` binary is needed.
 
 ## Building
 
@@ -63,7 +67,8 @@ cd src/IntroCommercialSkipper
 dotnet build -c Release
 ```
 
-The compiled `IntroCommercialSkipper.dll` will be in `bin/Release/net10.0/`.
+The compiled `IntroCommercialSkipper.dll` will be in `bin/Release/net9.0/` (or `net10.0/` when
+building against Jellyfin 12.x - see below).
 
 ### Targeting a different Jellyfin version
 
@@ -74,12 +79,13 @@ moved namespaces between 10.x and the 12.x line). Build against the `Jellyfin.Co
 server:
 
 ```bash
-dotnet build -c Release -p:JellyfinVersion=10.10.7
+dotnet build -c Release -p:JellyfinVersion=12.4.0
 ```
 
-You may need to adjust `<TargetFramework>` in `IntroCommercialSkipper.csproj` too (older Jellyfin
-releases target `net8.0`, not `net10.0`), and the code itself may need small adjustments if the
-ABI differs - the project is small enough that this is usually a quick fix.
+The target framework is picked automatically from `JellyfinVersion` (`net10.0` for 12.x, `net9.0`
+otherwise); override it explicitly with `-p:TargetFramework=net8.0` for an older 10.x release that
+needs it. The code itself may need small adjustments if the ABI differs further - the project is
+small enough that this is usually a quick fix.
 
 ## Installing
 
@@ -101,7 +107,7 @@ ABI differs - the project is small enough that this is usually a quick fix.
 | Max fingerprint bit-error rate | 0.35 | Lower = stricter match required |
 | Reference episodes compared per season | 3 | How many sibling episodes to try before giving up |
 | Heuristic black/silence/threshold settings | - | Tuning for the commercial fallback's ffmpeg filters |
-| ffmpeg / fpcalc path | PATH lookup | Override if the binaries aren't on Jellyfin's `PATH` |
+| ffmpeg path | PATH lookup | Override if ffmpeg isn't on Jellyfin's `PATH` (it usually isn't - see Requirements) |
 
 ## Project layout
 
@@ -112,7 +118,7 @@ src/IntroCommercialSkipper/
   Configuration/                     Settings model + config page (HTML/JS)
   Data/                              Segment types + on-disk detection cache
   Detection/
-    AudioFingerprint.cs              Shells out to ffmpeg+fpcalc for a Chromaprint fingerprint
+    AudioFingerprint.cs              Shells out to ffmpeg's Chromaprint muxer for a fingerprint
     FingerprintCorrelator.cs         Pure sample-index matching between two fingerprints
     IntroOutroDetector.cs            Intro/outro-specific use of the correlator
     ComskipEdlParser.cs              Reads an adjacent Comskip .edl file

@@ -17,7 +17,7 @@ public sealed record FingerprintMatch(int StartA, int EndA, int StartB, int EndB
 /// <summary>
 /// Finds the longest run of near-identical audio shared between two Chromaprint fingerprints.
 /// Pure sample-index math with no I/O, kept separate from <see cref="AudioFingerprinter"/> so the
-/// matching logic can be reasoned about (and unit tested) independently of shelling out to ffmpeg/fpcalc.
+/// matching logic can be reasoned about (and unit tested) independently of shelling out to ffmpeg.
 /// </summary>
 public static class FingerprintCorrelator
 {

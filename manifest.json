@@ -8,6 +8,14 @@
         "category": "General",
         "versions": [
             {
+                "version": "0.1.2.0",
+                "changelog": "Removes the fpcalc dependency entirely: intro/outro fingerprinting now uses ffmpeg's own Chromaprint muxer, since jellyfin-ffmpeg bundles libchromaprint but not the fpcalc CLI tool. Also fixes the config page showing blank fields, and stops caching a false negative when ffmpeg fails to launch so fixing the path and rescanning now actually retries.",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/LouisQ123/jellyfin-intro-commercial-skipper/releases/download/v0.1.2.0/intro-commercial-skipper-v0.1.2.0.zip",
+                "checksum": "2a3e6d4f3713a5690db5a7d38eecfd9b",
+                "timestamp": "2026-11-05T22:00:00Z"
+            },
+            {
                 "version": "0.1.1.0",
                 "changelog": "Fixes a startup crash: PluginServiceRegistrator read Plugin.Instance before it was guaranteed to be set, throwing a NullReferenceException that aborted Jellyfin's entire startup. Now resolves the plugin data directory from IApplicationPaths via DI instead.",
                 "targetAbi": "10.11.0.0",

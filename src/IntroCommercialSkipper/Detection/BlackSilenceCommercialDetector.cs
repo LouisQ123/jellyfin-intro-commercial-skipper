@@ -99,23 +99,35 @@ public class BlackSilenceCommercialDetector
         psi.ArgumentList.Add("null");
         psi.ArgumentList.Add("-");
 
+        Process? process;
         try
         {
-            using var process = Process.Start(psi);
-            if (process is null)
+            process = Process.Start(psi);
+        }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            throw new ExternalToolNotFoundException(_ffmpegPath, ex);
+        }
+
+        if (process is null)
+        {
+            return null;
+        }
+
+        using (process)
+        {
+            try
             {
+                var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+                var drainStdout = process.StandardOutput.BaseStream.CopyToAsync(Stream.Null, cancellationToken);
+                await Task.WhenAll(stderrTask, drainStdout, process.WaitForExitAsync(cancellationToken)).ConfigureAwait(false);
+                return await stderrTask.ConfigureAwait(false);
+            }
+            catch (IOException ex)
+            {
+                _logger.LogError(ex, "Failed to run ffmpeg black/silence analysis for {Path}", mediaPath);
                 return null;
             }
-
-            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-            var drainStdout = process.StandardOutput.BaseStream.CopyToAsync(Stream.Null, cancellationToken);
-            await Task.WhenAll(stderrTask, drainStdout, process.WaitForExitAsync(cancellationToken)).ConfigureAwait(false);
-            return await stderrTask.ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is IOException or System.ComponentModel.Win32Exception)
-        {
-            _logger.LogError(ex, "Failed to run ffmpeg black/silence analysis for {Path}", mediaPath);
-            return null;
         }
     }
 

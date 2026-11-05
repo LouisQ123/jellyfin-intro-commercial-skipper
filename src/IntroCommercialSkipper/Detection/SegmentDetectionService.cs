@@ -97,10 +97,7 @@ public class SegmentDetectionService
             return Array.Empty<DetectedSegment>();
         }
 
-        var fingerprinter = new AudioFingerprinter(
-            ExternalTools.ResolveFfmpeg(config),
-            ExternalTools.ResolveFpcalc(config),
-            _logger);
+        var fingerprinter = new AudioFingerprinter(ExternalTools.ResolveFfmpeg(config), _logger);
         var detector = new IntroOutroDetector(fingerprinter, config, _logger);
 
         var episodeDuration = TimeSpan.FromTicks(episode.RunTimeTicks ?? 0);

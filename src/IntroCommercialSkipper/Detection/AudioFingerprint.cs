@@ -1,8 +1,27 @@
-using System.Diagnostics;
 using System.Globalization;
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.IntroCommercialSkipper.Detection;
+
+/// <summary>
+/// Thrown when ffmpeg could not even be launched (wrong path, not executable, missing from the
+/// container/host). This is an environment problem, not a per-file one: callers must not treat it
+/// the way they treat "no match found" for a given file, or a single misconfiguration would get
+/// cached as a confident negative result for every file it touched.
+/// </summary>
+public sealed class ExternalToolNotFoundException : Exception
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ExternalToolNotFoundException"/> class.
+    /// </summary>
+    /// <param name="toolPath">The path or command name that failed to launch.</param>
+    /// <param name="inner">The underlying exception from <see cref="System.Diagnostics.Process.Start()"/>.</param>
+    public ExternalToolNotFoundException(string toolPath, Exception inner)
+        : base($"Could not start '{toolPath}' - check it is installed and the configured path is correct.", inner)
+    {
+    }
+}
 
 /// <summary>
 /// A Chromaprint raw fingerprint: one 32-bit integer per ~1/8 second of audio, each bit
@@ -21,30 +40,31 @@ public sealed record AudioFingerprint(IReadOnlyList<uint> Samples)
 }
 
 /// <summary>
-/// Computes <see cref="AudioFingerprint"/>s for an arbitrary window of a media file.
+/// Computes <see cref="AudioFingerprint"/>s for an arbitrary window of a media file using ffmpeg's
+/// own Chromaprint muxer.
 /// </summary>
 /// <remarks>
-/// fpcalc has no seek flag, so for every window (including one starting at 0) ffmpeg decodes,
-/// trims and resamples the requested window to raw mono 16-bit PCM and pipes it directly into
-/// fpcalc's stdin; this is also what keeps the two tools consistent with each other regardless of
-/// the source container/codec.
+/// ffmpeg builds that enable Chromaprint support (jellyfin-ffmpeg always does) link libchromaprint
+/// directly, so a single ffmpeg invocation with <c>-f chromaprint -fp_format raw</c> decodes, trims,
+/// resamples and fingerprints the requested window in one process - no separate <c>fpcalc</c> binary
+/// needed (and jellyfin-ffmpeg's build of libchromaprint does not ship that CLI tool at all).
+/// The muxer writes the fingerprint as a flat array of native-endian uint32 values, not text.
 /// </remarks>
 public class AudioFingerprinter
 {
+    private const int SampleRate = 11025;
+
     private readonly ILogger _logger;
     private readonly string _ffmpegPath;
-    private readonly string _fpcalcPath;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AudioFingerprinter"/> class.
     /// </summary>
     /// <param name="ffmpegPath">Path to, or bare command name of, the ffmpeg executable.</param>
-    /// <param name="fpcalcPath">Path to, or bare command name of, the fpcalc executable.</param>
     /// <param name="logger">Logger.</param>
-    public AudioFingerprinter(string ffmpegPath, string fpcalcPath, ILogger logger)
+    public AudioFingerprinter(string ffmpegPath, ILogger logger)
     {
         _ffmpegPath = ffmpegPath;
-        _fpcalcPath = fpcalcPath;
         _logger = logger;
     }
 
@@ -55,137 +75,101 @@ public class AudioFingerprinter
     /// <param name="startOffset">Where in the file to start fingerprinting.</param>
     /// <param name="length">How much audio to fingerprint.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The fingerprint, or null if either tool failed or produced no usable output.</returns>
+    /// <returns>The fingerprint, or null if ffmpeg produced no usable output for this file/window.</returns>
+    /// <exception cref="ExternalToolNotFoundException">ffmpeg could not be launched at all.</exception>
     public async Task<AudioFingerprint?> FingerprintAsync(
         string mediaPath,
         TimeSpan startOffset,
         TimeSpan length,
         CancellationToken cancellationToken)
     {
-        const int SampleRate = 11025;
-
-        var ffmpegPsi = new ProcessStartInfo(_ffmpegPath)
+        var psi = new ProcessStartInfo(_ffmpegPath)
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
         };
-        ffmpegPsi.ArgumentList.Add("-ss");
-        ffmpegPsi.ArgumentList.Add(startOffset.TotalSeconds.ToString(CultureInfo.InvariantCulture));
-        ffmpegPsi.ArgumentList.Add("-t");
-        ffmpegPsi.ArgumentList.Add(length.TotalSeconds.ToString(CultureInfo.InvariantCulture));
-        ffmpegPsi.ArgumentList.Add("-i");
-        ffmpegPsi.ArgumentList.Add(mediaPath);
-        ffmpegPsi.ArgumentList.Add("-vn");
-        ffmpegPsi.ArgumentList.Add("-ac");
-        ffmpegPsi.ArgumentList.Add("1");
-        ffmpegPsi.ArgumentList.Add("-ar");
-        ffmpegPsi.ArgumentList.Add(SampleRate.ToString(CultureInfo.InvariantCulture));
-        ffmpegPsi.ArgumentList.Add("-f");
-        ffmpegPsi.ArgumentList.Add("s16le");
-        ffmpegPsi.ArgumentList.Add("-");
+        psi.ArgumentList.Add("-ss");
+        psi.ArgumentList.Add(startOffset.TotalSeconds.ToString(CultureInfo.InvariantCulture));
+        psi.ArgumentList.Add("-t");
+        psi.ArgumentList.Add(length.TotalSeconds.ToString(CultureInfo.InvariantCulture));
+        psi.ArgumentList.Add("-i");
+        psi.ArgumentList.Add(mediaPath);
+        psi.ArgumentList.Add("-vn");
+        psi.ArgumentList.Add("-ac");
+        psi.ArgumentList.Add("1");
+        psi.ArgumentList.Add("-ar");
+        psi.ArgumentList.Add(SampleRate.ToString(CultureInfo.InvariantCulture));
+        psi.ArgumentList.Add("-c:a");
+        psi.ArgumentList.Add("pcm_s16le");
+        psi.ArgumentList.Add("-f");
+        psi.ArgumentList.Add("chromaprint");
+        psi.ArgumentList.Add("-fp_format");
+        psi.ArgumentList.Add("raw");
+        psi.ArgumentList.Add("-");
 
-        var fpcalcPsi = new ProcessStartInfo(_fpcalcPath)
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            RedirectStandardInput = true,
-            UseShellExecute = false,
-        };
-        fpcalcPsi.ArgumentList.Add("-raw");
-        fpcalcPsi.ArgumentList.Add("-length");
-        fpcalcPsi.ArgumentList.Add(((int)length.TotalSeconds).ToString(CultureInfo.InvariantCulture));
-        fpcalcPsi.ArgumentList.Add("-format");
-        fpcalcPsi.ArgumentList.Add("s16le");
-        fpcalcPsi.ArgumentList.Add("-rate");
-        fpcalcPsi.ArgumentList.Add(SampleRate.ToString(CultureInfo.InvariantCulture));
-        fpcalcPsi.ArgumentList.Add("-channels");
-        fpcalcPsi.ArgumentList.Add("1");
-        fpcalcPsi.ArgumentList.Add("-");
-
+        Process? process;
         try
         {
-            using var ffmpeg = Process.Start(ffmpegPsi);
-            using var fpcalc = Process.Start(fpcalcPsi);
-            if (ffmpeg is null || fpcalc is null)
-            {
-                return null;
-            }
-
-            var pumpTask = PumpAsync(ffmpeg, fpcalc, cancellationToken);
-            var stdoutTask = fpcalc.StandardOutput.ReadToEndAsync(cancellationToken);
-            var ffmpegStderrTask = ffmpeg.StandardError.ReadToEndAsync(cancellationToken);
-
-            await Task.WhenAll(
-                pumpTask,
-                stdoutTask,
-                ffmpegStderrTask,
-                ffmpeg.WaitForExitAsync(cancellationToken),
-                fpcalc.WaitForExitAsync(cancellationToken)).ConfigureAwait(false);
-
-            if (fpcalc.ExitCode != 0)
-            {
-                _logger.LogWarning(
-                    "fpcalc exited with code {Code} for {Path} at offset {Offset}",
-                    fpcalc.ExitCode,
-                    mediaPath,
-                    startOffset);
-                return null;
-            }
-
-            return ParseRawFingerprint(await stdoutTask.ConfigureAwait(false));
+            process = Process.Start(psi);
         }
-        catch (Exception ex) when (ex is IOException or System.ComponentModel.Win32Exception)
+        catch (System.ComponentModel.Win32Exception ex)
         {
-            _logger.LogError(ex, "Failed to fingerprint {Path} at offset {Offset}", mediaPath, startOffset);
-            return null;
+            throw new ExternalToolNotFoundException(_ffmpegPath, ex);
         }
-    }
 
-    private static async Task PumpAsync(Process source, Process destination, CancellationToken cancellationToken)
-    {
-        try
+        if (process is null)
         {
-            await source.StandardOutput.BaseStream
-                .CopyToAsync(destination.StandardInput.BaseStream, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (IOException)
-        {
-            // The downstream process (fpcalc) can close its stdin early once it has read enough
-            // samples; that shows up here as a broken pipe, which is expected and not an error.
-        }
-        finally
-        {
-            destination.StandardInput.Close();
-        }
-    }
-
-    private AudioFingerprint? ParseRawFingerprint(string fpcalcOutput)
-    {
-        // fpcalc -raw output looks like:
-        //   DURATION=1234
-        //   FINGERPRINT=123,456,-789,...
-        var line = fpcalcOutput
-            .Split('\n')
-            .FirstOrDefault(l => l.StartsWith("FINGERPRINT=", StringComparison.Ordinal));
-
-        if (line is null)
-        {
-            _logger.LogWarning("fpcalc produced no FINGERPRINT line");
             return null;
         }
 
-        var values = line["FINGERPRINT=".Length..].Split(',');
-        var samples = new List<uint>(values.Length);
-        foreach (var value in values)
+        using (process)
         {
-            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var signed))
+            try
             {
-                samples.Add(unchecked((uint)signed));
+                using var rawOutput = new MemoryStream();
+                var copyTask = process.StandardOutput.BaseStream.CopyToAsync(rawOutput, cancellationToken);
+                var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+                await Task.WhenAll(copyTask, stderrTask, process.WaitForExitAsync(cancellationToken)).ConfigureAwait(false);
+
+                if (process.ExitCode != 0)
+                {
+                    _logger.LogWarning(
+                        "ffmpeg exited with code {Code} fingerprinting {Path} at offset {Offset}: {Stderr}",
+                        process.ExitCode,
+                        mediaPath,
+                        startOffset,
+                        await stderrTask.ConfigureAwait(false));
+                    return null;
+                }
+
+                return ParseRawFingerprint(rawOutput.ToArray());
+            }
+            catch (IOException ex)
+            {
+                // A per-file I/O hiccup (e.g. an unreadable/corrupt file), not an environment
+                // misconfiguration: safe to treat as "no fingerprint for this file" and let it be cached.
+                _logger.LogError(ex, "Failed to fingerprint {Path} at offset {Offset}", mediaPath, startOffset);
+                return null;
             }
         }
+    }
 
-        return samples.Count == 0 ? null : new AudioFingerprint(samples);
+    private AudioFingerprint? ParseRawFingerprint(byte[] rawBytes)
+    {
+        if (rawBytes.Length < 4)
+        {
+            _logger.LogWarning("ffmpeg produced no usable chromaprint output ({Bytes} bytes)", rawBytes.Length);
+            return null;
+        }
+
+        var sampleCount = rawBytes.Length / 4;
+        var samples = new List<uint>(sampleCount);
+        for (var i = 0; i < sampleCount; i++)
+        {
+            samples.Add(BitConverter.ToUInt32(rawBytes, i * 4));
+        }
+
+        return new AudioFingerprint(samples);
     }
 }

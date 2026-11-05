@@ -76,10 +76,7 @@
                         <div class="inputContainer">
                             <label class="inputLabel" for="FfmpegPath">ffmpeg path (blank = use PATH)</label>
                             <input id="FfmpegPath" type="text" is="emby-input" />
-                        </div>
-                        <div class="inputContainer">
-                            <label class="inputLabel" for="FpcalcPath">fpcalc path (blank = use PATH)</label>
-                            <input id="FpcalcPath" type="text" is="emby-input" />
+                            <div class="fieldDescription">Jellyfin's own bundled ffmpeg usually isn't on PATH. On the official Docker image it's at /usr/lib/jellyfin-ffmpeg/ffmpeg.</div>
                         </div>
                     </div>
 
@@ -110,7 +107,6 @@
                     view.querySelector("#HeuristicSilenceThresholdDb").value = config.HeuristicSilenceThresholdDb;
                     view.querySelector("#HeuristicBlackPixelThreshold").value = config.HeuristicBlackPixelThreshold;
                     view.querySelector("#FfmpegPath").value = config.FfmpegPath;
-                    view.querySelector("#FpcalcPath").value = config.FpcalcPath;
                     Dashboard.hideLoadingMsg();
                 });
             }
@@ -129,15 +125,18 @@
                     config.HeuristicSilenceThresholdDb = parseFloat(view.querySelector("#HeuristicSilenceThresholdDb").value);
                     config.HeuristicBlackPixelThreshold = parseFloat(view.querySelector("#HeuristicBlackPixelThreshold").value);
                     config.FfmpegPath = view.querySelector("#FfmpegPath").value;
-                    config.FpcalcPath = view.querySelector("#FpcalcPath").value;
                     ApiClient.updatePluginConfiguration(PluginId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);
                     });
                 });
             }
 
-            document.querySelector("#IntroCommercialSkipperConfigPage")
-                .addEventListener("viewshow", function () { load(this); });
+            var pageElem = document.querySelector("#IntroCommercialSkipperConfigPage");
+            // "viewshow" covers the older Jellyfin web client's view-swap system; newer clients
+            // navigate straight to this page without ever firing it, so load immediately too -
+            // whichever fires (or both) just calls load() again, which is harmless.
+            pageElem.addEventListener("viewshow", function () { load(this); });
+            load(pageElem);
 
             document.querySelector("#IntroCommercialSkipperConfigForm")
                 .addEventListener("submit", function (e) {
