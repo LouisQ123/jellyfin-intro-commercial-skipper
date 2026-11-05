@@ -1,0 +1,20 @@
+[
+    {
+        "guid": "b9b6a0d6-7f1b-4c9a-9b3e-5a9f6a7c2e11",
+        "name": "Intro & Commercial Skipper",
+        "overview": "Detects recurring episode intros/outros and commercial breaks, exposing them as native skippable media segments.",
+        "description": "Fingerprints episode audio (via Chromaprint) to find recurring intros/outros across a season, and imports Comskip .edl files, or runs a built-in black-frame/silence heuristic, to find commercial breaks in recorded broadcast content.",
+        "owner": "LouisQ123",
+        "category": "General",
+        "versions": [
+            {
+                "version": "0.1.0.0",
+                "changelog": "Initial release: cross-episode intro/outro fingerprinting, Comskip .edl import, and a heuristic black-frame/silence commercial detector.",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/LouisQ123/jellyfin-intro-commercial-skipper/releases/download/v0.1.0.0/intro-commercial-skipper-v0.1.0.0.zip",
+                "checksum": "5c8293faa0b50e4239d61c05f6eedcb4",
+                "timestamp": "2026-11-05T00:00:00Z"
+            }
+        ]
+    }
+]
