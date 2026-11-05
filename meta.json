@@ -8,8 +8,8 @@
   "artifacts": [
     "IntroCommercialSkipper.dll"
   ],
-  "version": "0.1.0.0",
+  "version": "0.1.1.0",
   "targetAbi": "10.11.0.0",
   "framework": "net9.0",
-  "changelog": "Initial release: cross-episode intro/outro fingerprinting, Comskip .edl import, and a heuristic black-frame/silence commercial detector."
+  "changelog": "0.1.1.0: Fixed a startup crash (NullReferenceException in PluginServiceRegistrator) caused by reading Plugin.Instance before it was set. 0.1.0.0: Initial release: cross-episode intro/outro fingerprinting, Comskip .edl import, and a heuristic black-frame/silence commercial detector."
 }
