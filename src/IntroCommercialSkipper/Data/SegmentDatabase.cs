@@ -30,10 +30,25 @@ public sealed class CacheEntry
 /// </summary>
 public class SegmentDatabase
 {
+    /// <summary>
+    /// Bump this whenever a change could make previously-cached entries wrong in a way the
+    /// file-identity check (write time + size) can't catch - for example a bug fix that changes
+    /// what a given input legitimately produces. Loading a cache written under an older format
+    /// version discards it entirely rather than trusting stale results.
+    /// </summary>
+    private const int CurrentFormatVersion = 2;
+
     private readonly ILogger<SegmentDatabase> _logger;
     private readonly string _filePath;
     private readonly ConcurrentDictionary<Guid, CacheEntry> _entries = new();
     private readonly object _saveLock = new();
+
+    private sealed class CacheFile
+    {
+        public int FormatVersion { get; set; }
+
+        public Dictionary<Guid, CacheEntry> Entries { get; set; } = new();
+    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SegmentDatabase"/> class and loads any
@@ -111,13 +126,23 @@ public class SegmentDatabase
         try
         {
             var json = File.ReadAllText(_filePath);
-            var dto = JsonSerializer.Deserialize<Dictionary<Guid, CacheEntry>>(json);
+            var dto = JsonSerializer.Deserialize<CacheFile>(json);
             if (dto is null)
             {
                 return;
             }
 
-            foreach (var (key, value) in dto)
+            if (dto.FormatVersion != CurrentFormatVersion)
+            {
+                _logger.LogInformation(
+                    "Segment cache at {Path} is format version {OldVersion}, current is {NewVersion}; discarding and starting fresh",
+                    _filePath,
+                    dto.FormatVersion,
+                    CurrentFormatVersion);
+                return;
+            }
+
+            foreach (var (key, value) in dto.Entries)
             {
                 _entries[key] = value;
             }
@@ -134,7 +159,11 @@ public class SegmentDatabase
         {
             try
             {
-                var snapshot = _entries.ToDictionary(kv => kv.Key, kv => kv.Value);
+                var snapshot = new CacheFile
+                {
+                    FormatVersion = CurrentFormatVersion,
+                    Entries = _entries.ToDictionary(kv => kv.Key, kv => kv.Value),
+                };
                 var json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = false });
                 var tempPath = _filePath + ".tmp";
                 File.WriteAllText(tempPath, json);
