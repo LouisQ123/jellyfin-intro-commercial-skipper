@@ -55,10 +55,11 @@ occasionally flag a deliberate black-screen-with-silence moment in actual conten
 - Jellyfin server 10.11.x by default (this plugin targets the `MediaBrowser.Controller`/
   `MediaBrowser.Model` ABI as of that version - see **Targeting a different Jellyfin version**
   below to build for 12.x or an older 10.x server instead).
-- `ffmpeg` built with Chromaprint support, available on the server's `PATH` or configured with an
-  explicit path in the plugin settings. jellyfin-ffmpeg (what Jellyfin's own Docker image bundles)
-  always includes this; it is usually *not* on `PATH` inside the container - on the official image
-  it's at `/usr/lib/jellyfin-ffmpeg/ffmpeg`. No separate `fpcalc` binary is needed.
+- An ffmpeg build with Chromaprint support. By default this plugin uses whatever ffmpeg Jellyfin
+  itself is already configured to use (Dashboard > Playback > Transcoding), so nothing needs
+  configuring separately in the common case; jellyfin-ffmpeg (what Jellyfin's own Docker image
+  bundles) always includes Chromaprint support. No separate `fpcalc` binary is needed. Only set an
+  override in this plugin's own settings if you need it to use a *different* ffmpeg than Jellyfin does.
 
 ## Building
 
@@ -107,7 +108,7 @@ small enough that this is usually a quick fix.
 | Max fingerprint bit-error rate | 0.35 | Lower = stricter match required |
 | Reference episodes compared per season | 3 | How many sibling episodes to try before giving up |
 | Heuristic black/silence/threshold settings | - | Tuning for the commercial fallback's ffmpeg filters |
-| ffmpeg path | PATH lookup | Override if ffmpeg isn't on Jellyfin's `PATH` (it usually isn't - see Requirements) |
+| ffmpeg path override | blank = use Jellyfin's own ffmpeg | Only needed to point at a *different* ffmpeg than Jellyfin itself uses |
 
 ## Project layout
 

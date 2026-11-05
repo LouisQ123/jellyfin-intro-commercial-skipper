@@ -74,9 +74,9 @@
                     <div class="verticalSection">
                         <h2>External tools</h2>
                         <div class="inputContainer">
-                            <label class="inputLabel" for="FfmpegPath">ffmpeg path (blank = use PATH)</label>
+                            <label class="inputLabel" for="FfmpegPath">ffmpeg path override (optional)</label>
                             <input id="FfmpegPath" type="text" is="emby-input" />
-                            <div class="fieldDescription">Jellyfin's own bundled ffmpeg usually isn't on PATH. On the official Docker image it's at /usr/lib/jellyfin-ffmpeg/ffmpeg.</div>
+                            <div class="fieldDescription">Leave blank to use the same ffmpeg Jellyfin itself is configured to use (Dashboard &gt; Playback &gt; Transcoding). Only set this to point somewhere else entirely.</div>
                         </div>
                     </div>
 

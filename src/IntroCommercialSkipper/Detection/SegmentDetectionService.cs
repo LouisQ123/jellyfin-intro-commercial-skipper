@@ -6,6 +6,7 @@ using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.MediaEncoding;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.IntroCommercialSkipper.Detection;
@@ -18,16 +19,19 @@ namespace Jellyfin.Plugin.IntroCommercialSkipper.Detection;
 public class SegmentDetectionService
 {
     private readonly ILibraryManager _libraryManager;
+    private readonly IMediaEncoder _mediaEncoder;
     private readonly ILogger<SegmentDetectionService> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SegmentDetectionService"/> class.
     /// </summary>
     /// <param name="libraryManager">Library manager, used to look up sibling episodes for intro/outro comparison.</param>
+    /// <param name="mediaEncoder">Jellyfin's own media encoder service, used to default to its configured ffmpeg path.</param>
     /// <param name="logger">Logger.</param>
-    public SegmentDetectionService(ILibraryManager libraryManager, ILogger<SegmentDetectionService> logger)
+    public SegmentDetectionService(ILibraryManager libraryManager, IMediaEncoder mediaEncoder, ILogger<SegmentDetectionService> logger)
     {
         _libraryManager = libraryManager;
+        _mediaEncoder = mediaEncoder;
         _logger = logger;
     }
 
@@ -72,7 +76,7 @@ public class SegmentDetectionService
             return Array.Empty<DetectedSegment>();
         }
 
-        var detector = new BlackSilenceCommercialDetector(ExternalTools.ResolveFfmpeg(config), config, _logger);
+        var detector = new BlackSilenceCommercialDetector(ExternalTools.ResolveFfmpeg(config, _mediaEncoder), config, _logger);
         var heuristicResults = await detector.DetectAsync(path, cancellationToken).ConfigureAwait(false);
         _logger.LogDebug(
             "Heuristic black/silence scan found {Count} candidate commercial breaks for {Path}",
@@ -97,7 +101,7 @@ public class SegmentDetectionService
             return Array.Empty<DetectedSegment>();
         }
 
-        var fingerprinter = new AudioFingerprinter(ExternalTools.ResolveFfmpeg(config), _logger);
+        var fingerprinter = new AudioFingerprinter(ExternalTools.ResolveFfmpeg(config, _mediaEncoder), _logger);
         var detector = new IntroOutroDetector(fingerprinter, config, _logger);
 
         var episodeDuration = TimeSpan.FromTicks(episode.RunTimeTicks ?? 0);
