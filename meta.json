@@ -9,7 +9,7 @@
     "IntroCommercialSkipper.dll"
   ],
   "version": "0.1.0.0",
-  "targetAbi": "12.4.0.0",
-  "framework": "net10.0",
+  "targetAbi": "10.11.0.0",
+  "framework": "net9.0",
   "changelog": "Initial release: cross-episode intro/outro fingerprinting, Comskip .edl import, and a heuristic black-frame/silence commercial detector."
 }
