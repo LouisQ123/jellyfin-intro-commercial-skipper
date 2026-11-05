@@ -1,0 +1,18 @@
+---
+name: "Intro & Commercial Skipper"
+guid: "b9b6a0d6-7f1b-4c9a-9b3e-5a9f6a7c2e11"
+version: "0.1.0.0"
+targetAbi: "12.4.0.0"
+framework: "net10.0"
+owner: "wearethere-healthcare"
+overview: "Detects recurring episode intros/outros and commercial breaks, exposing them as native skippable media segments."
+description: >
+  Fingerprints episode audio (via Chromaprint) to find recurring intros/outros across a season,
+  and imports Comskip .edl files, or runs a built-in black-frame/silence heuristic, to find
+  commercial breaks in recorded broadcast content.
+category: "General"
+artifacts:
+  - "IntroCommercialSkipper.dll"
+changelog: >
+  - Initial release: cross-episode intro/outro fingerprinting, Comskip .edl import, and a
+    heuristic black-frame/silence commercial detector.

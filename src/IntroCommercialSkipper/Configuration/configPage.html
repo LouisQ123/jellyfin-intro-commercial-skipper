@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Intro &amp; Commercial Skipper</title>
+</head>
+<body>
+    <div id="IntroCommercialSkipperConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox,emby-select">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="IntroCommercialSkipperConfigForm">
+                    <div class="verticalSection">
+                        <h2>Detection</h2>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input id="EnableIntroOutroDetection" type="checkbox" is="emby-checkbox" />
+                                <span>Detect recurring intros/outros</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">Compares audio fingerprints across episodes of the same season to find a repeated intro/credits sequence.</div>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input id="EnableCommercialDetection" type="checkbox" is="emby-checkbox" />
+                                <span>Detect commercial breaks</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">Imports a Comskip .edl file next to the media if one exists. Enable the heuristic fallback below to also scan files with no .edl.</div>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input id="EnableHeuristicCommercialFallback" type="checkbox" is="emby-checkbox" />
+                                <span>Use built-in black-frame/silence heuristic when no .edl is found</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">Slower and much less reliable than Comskip. Recommended: run Comskip separately and leave this off unless you have no other option.</div>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <h2>Intro/Outro tuning</h2>
+                        <div class="inputContainer">
+                            <label class="inputLabel" for="MinIntroOutroDurationSeconds">Minimum intro/outro duration (seconds)</label>
+                            <input id="MinIntroOutroDurationSeconds" type="number" is="emby-input" min="1" max="120" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel" for="IntroOutroSearchWindowSeconds">Search window per episode (seconds)</label>
+                            <input id="IntroOutroSearchWindowSeconds" type="number" is="emby-input" min="30" max="1200" />
+                            <div class="fieldDescription">How much of the start and end of each episode is fingerprinted and compared.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel" for="FingerprintMaxBitErrorRate">Max fingerprint bit-error rate (0-1)</label>
+                            <input id="FingerprintMaxBitErrorRate" type="number" is="emby-input" min="0" max="1" step="0.01" />
+                            <div class="fieldDescription">Lower is stricter. Raise this if real intros are being missed; lower it if unrelated audio is being matched.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel" for="MaxReferenceEpisodesPerSeason">Reference episodes compared per season</label>
+                            <input id="MaxReferenceEpisodesPerSeason" type="number" is="emby-input" min="1" max="10" />
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <h2>Commercial heuristic tuning</h2>
+                        <div class="inputContainer">
+                            <label class="inputLabel" for="HeuristicMinBreakSeconds">Minimum black+silence duration (seconds)</label>
+                            <input id="HeuristicMinBreakSeconds" type="number" is="emby-input" min="0.1" max="5" step="0.1" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel" for="HeuristicSilenceThresholdDb">Silence threshold (dB)</label>
+                            <input id="HeuristicSilenceThresholdDb" type="number" is="emby-input" min="-90" max="0" step="1" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel" for="HeuristicBlackPixelThreshold">Black pixel threshold (0-1)</label>
+                            <input id="HeuristicBlackPixelThreshold" type="number" is="emby-input" min="0" max="1" step="0.01" />
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <h2>External tools</h2>
+                        <div class="inputContainer">
+                            <label class="inputLabel" for="FfmpegPath">ffmpeg path (blank = use PATH)</label>
+                            <input id="FfmpegPath" type="text" is="emby-input" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel" for="FpcalcPath">fpcalc path (blank = use PATH)</label>
+                            <input id="FpcalcPath" type="text" is="emby-input" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript">
+        (function () {
+            var PluginId = "b9b6a0d6-7f1b-4c9a-9b3e-5a9f6a7c2e11";
+
+            function load(view) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(PluginId).then(function (config) {
+                    view.querySelector("#EnableIntroOutroDetection").checked = config.EnableIntroOutroDetection;
+                    view.querySelector("#EnableCommercialDetection").checked = config.EnableCommercialDetection;
+                    view.querySelector("#EnableHeuristicCommercialFallback").checked = config.EnableHeuristicCommercialFallback;
+                    view.querySelector("#MinIntroOutroDurationSeconds").value = config.MinIntroOutroDurationSeconds;
+                    view.querySelector("#IntroOutroSearchWindowSeconds").value = config.IntroOutroSearchWindowSeconds;
+                    view.querySelector("#FingerprintMaxBitErrorRate").value = config.FingerprintMaxBitErrorRate;
+                    view.querySelector("#MaxReferenceEpisodesPerSeason").value = config.MaxReferenceEpisodesPerSeason;
+                    view.querySelector("#HeuristicMinBreakSeconds").value = config.HeuristicMinBreakSeconds;
+                    view.querySelector("#HeuristicSilenceThresholdDb").value = config.HeuristicSilenceThresholdDb;
+                    view.querySelector("#HeuristicBlackPixelThreshold").value = config.HeuristicBlackPixelThreshold;
+                    view.querySelector("#FfmpegPath").value = config.FfmpegPath;
+                    view.querySelector("#FpcalcPath").value = config.FpcalcPath;
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            function save(view) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(PluginId).then(function (config) {
+                    config.EnableIntroOutroDetection = view.querySelector("#EnableIntroOutroDetection").checked;
+                    config.EnableCommercialDetection = view.querySelector("#EnableCommercialDetection").checked;
+                    config.EnableHeuristicCommercialFallback = view.querySelector("#EnableHeuristicCommercialFallback").checked;
+                    config.MinIntroOutroDurationSeconds = parseInt(view.querySelector("#MinIntroOutroDurationSeconds").value, 10);
+                    config.IntroOutroSearchWindowSeconds = parseInt(view.querySelector("#IntroOutroSearchWindowSeconds").value, 10);
+                    config.FingerprintMaxBitErrorRate = parseFloat(view.querySelector("#FingerprintMaxBitErrorRate").value);
+                    config.MaxReferenceEpisodesPerSeason = parseInt(view.querySelector("#MaxReferenceEpisodesPerSeason").value, 10);
+                    config.HeuristicMinBreakSeconds = parseFloat(view.querySelector("#HeuristicMinBreakSeconds").value);
+                    config.HeuristicSilenceThresholdDb = parseFloat(view.querySelector("#HeuristicSilenceThresholdDb").value);
+                    config.HeuristicBlackPixelThreshold = parseFloat(view.querySelector("#HeuristicBlackPixelThreshold").value);
+                    config.FfmpegPath = view.querySelector("#FfmpegPath").value;
+                    config.FpcalcPath = view.querySelector("#FpcalcPath").value;
+                    ApiClient.updatePluginConfiguration(PluginId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+            }
+
+            document.querySelector("#IntroCommercialSkipperConfigPage")
+                .addEventListener("viewshow", function () { load(this); });
+
+            document.querySelector("#IntroCommercialSkipperConfigForm")
+                .addEventListener("submit", function (e) {
+                    e.preventDefault();
+                    save(document.querySelector("#IntroCommercialSkipperConfigPage"));
+                    return false;
+                });
+        })();
+    </script>
+</body>
+</html>

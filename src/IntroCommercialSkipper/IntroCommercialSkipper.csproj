@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>IntroCommercialSkipper</AssemblyName>
+    <RootNamespace>Jellyfin.Plugin.IntroCommercialSkipper</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <WarningsAsErrors>false</WarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration/configPage.html" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Jellyfin.Controller / Jellyfin.Model / Jellyfin.Database.Implementations carry the server's plugin ABI
+      (MediaBrowser.Controller / MediaBrowser.Model / Jellyfin.Database.Implementations namespaces). Pin this to
+      the exact Jellyfin server version you're targeting - the plugin ABI (in particular IMediaSegmentProvider,
+      added in 10.9, and MediaSegmentType, which moved namespaces since) is not stable across server versions.
+      Override from the command line with: dotnet build -p:JellyfinVersion=10.10.7
+      See README.md's "Targeting a different Jellyfin version" section.
+    -->
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinVersion)" />
+    <PackageReference Include="Jellyfin.Model" Version="$(JellyfinVersion)" />
+    <PackageReference Include="Jellyfin.Database.Implementations" Version="$(JellyfinVersion)" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <JellyfinVersion Condition="'$(JellyfinVersion)' == ''">12.4.0</JellyfinVersion>
+  </PropertyGroup>
+
+</Project>
